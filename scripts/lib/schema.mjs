@@ -9,6 +9,21 @@ export const CATEGORIES = [
   'Shopping & deals', 'Lifestyle', 'On-chain services',
 ]
 
+// Cycle III's theme: one category per prize, plus Off-theme for entries
+// outside it. Mirrors THEME_CATEGORIES in the portal's shared/categories.ts.
+export const THEME_CATEGORIES = ['Pay', 'Save', 'Earn', 'On/Off-Ramp', 'Off-theme']
+
+const CYCLE_CATEGORIES = {
+  cycle3: THEME_CATEGORIES,
+}
+
+// The vocabulary a submission in `cycle` must pick from. Cycles without a
+// theme of their own take the general categories. Mirrors the portal's
+// categoriesForCycle.
+export function categoriesForCycle(cycle) {
+  return CYCLE_CATEGORIES[cycle] ?? CATEGORIES
+}
+
 export const PRICING = ['Free', 'Freemium', 'Paid']
 
 export const MAX = {

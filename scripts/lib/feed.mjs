@@ -1,5 +1,5 @@
 import { parse as parseYaml } from 'yaml'
-import { CATEGORIES, IMAGE, MAX, PRICING, SAFE_FILENAME_RE, isHttpUrl } from './schema.mjs'
+import { IMAGE, MAX, PRICING, SAFE_FILENAME_RE, categoriesForCycle, isHttpUrl } from './schema.mjs'
 
 const CYCLE_RE = /^cycle(\d+)$/
 
@@ -25,19 +25,27 @@ const isValidDate = (value) => typeof value === 'string'
 // Publishes public catalog, media and builder-profile data. contact_email and
 // builder_story stay out of the feed.
 //
-// Returns { feed, assets, errors }. `assets` are the image files to copy into
+// Alongside it, one feed per cycle for the competition site's showcase: the
+// same entries plus builder_story, which the showcase detail page renders.
+// contact_email stays out of those too.
+//
+// Returns { feed, cycleFeeds, assets, errors }, where cycleFeeds maps each
+// cycle folder to its own { generated_at, commit, cycle, apps }. `assets` are the image files to copy into
 // the published site, at the same repo-relative paths their URLs point to.
 // A non-empty `errors` means the feed is incomplete and must not be published:
 // main is already gated by validate-submission.yml, so anything wrong here is
 // drift that should be loud rather than a silently dropped app.
 export function buildFeed({ listDirs, readFile, baseUrl, commit, generatedAt }) {
   const apps = []
+  const cycleFeeds = {}
   const assets = []
   const errors = []
 
   const cycles = listDirs('.').filter((n) => CYCLE_RE.test(n)).sort(byCycleNumber)
 
   for (const cycle of cycles) {
+    const cycleApps = []
+    cycleFeeds[cycle] = { generated_at: generatedAt, commit, cycle, apps: cycleApps }
     for (const login of listDirs(cycle).sort()) {
       const dir = `${cycle}/${login}`
       const buf = readFile(`${dir}/submission.yaml`)
@@ -74,6 +82,7 @@ export function buildFeed({ listDirs, readFile, baseUrl, commit, generatedAt }) 
         x_account: xAccount,
         team_name: teamName,
         team_members: teamMembers,
+        builder_story: builderStory,
         submitted_at: submittedAt,
       } = value
 
@@ -81,7 +90,7 @@ export function buildFeed({ listDirs, readFile, baseUrl, commit, generatedAt }) 
         errors.push(`${dir}: app_name is missing.`)
         continue
       }
-      if (typeof category !== 'string' || !CATEGORIES.includes(category)) {
+      if (typeof category !== 'string' || !categoriesForCycle(cycle).includes(category)) {
         errors.push(`${dir}: category is missing or not one of the known categories.`)
         continue
       }
@@ -127,6 +136,10 @@ export function buildFeed({ listDirs, readFile, baseUrl, commit, generatedAt }) 
         errors.push(`${dir}: team_members must be a list of text or null.`)
         continue
       }
+      if (!isOptionalText(builderStory, MAX.builderStory)) {
+        errors.push(`${dir}: builder_story must be text or null.`)
+        continue
+      }
       if (!isValidDate(submittedAt)) {
         errors.push(`${dir}: submitted_at is missing or not a valid date.`)
         continue
@@ -160,7 +173,7 @@ export function buildFeed({ listDirs, readFile, baseUrl, commit, generatedAt }) 
         continue
       }
 
-      apps.push({
+      const app = {
         cycle,
         app_name: appName,
         category,
@@ -178,10 +191,12 @@ export function buildFeed({ listDirs, readFile, baseUrl, commit, generatedAt }) 
         team_name: teamName ?? null,
         team_members: teamMembers ?? null,
         submitted_at: submittedAt,
-      })
+      }
+      apps.push(app)
+      cycleApps.push({ ...app, builder_story: builderStory ?? null })
       assets.push(`${dir}/${icon}`, `${dir}/${thumbnail}`, ...screenshots.map((screenshot) => `${dir}/${screenshot}`))
     }
   }
 
-  return { feed: { generated_at: generatedAt, commit, apps }, assets, errors }
+  return { feed: { generated_at: generatedAt, commit, apps }, cycleFeeds, assets, errors }
 }

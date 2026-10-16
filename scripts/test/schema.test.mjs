@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  CATEGORIES, PRICING, MAX, EMAIL_RE, IMAGE,
+  CATEGORIES, THEME_CATEGORIES, categoriesForCycle, PRICING, MAX, EMAIL_RE, IMAGE,
   SUBMISSION_DIR_RE, SAFE_FILENAME_RE, isHttpUrl,
 } from '../lib/schema.mjs'
 
@@ -44,4 +44,12 @@ test('isHttpUrl', () => {
   assert.ok(isHttpUrl('http://x.com'))
   assert.ok(!isHttpUrl('ftp://x.com'))
   assert.ok(!isHttpUrl('not a url'))
+})
+
+test('Cycle III takes the theme categories, every other cycle the general ones', () => {
+  assert.deepEqual(THEME_CATEGORIES, ['Pay', 'Save', 'Earn', 'On/Off-Ramp', 'Off-theme'])
+  assert.equal(categoriesForCycle('cycle3'), THEME_CATEGORIES)
+  assert.equal(categoriesForCycle('cycle1'), CATEGORIES)
+  assert.equal(categoriesForCycle('cycle2'), CATEGORIES)
+  assert.equal(categoriesForCycle(undefined), CATEGORIES)
 })

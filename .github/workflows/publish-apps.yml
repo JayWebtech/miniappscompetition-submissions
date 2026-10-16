@@ -5,6 +5,9 @@ name: Publish app feed
 #
 #   https://nimiq.github.io/miniappscompetition-submissions/apps.json
 #
+# plus one feed per cycle (cycle1.json, cycle2.json, …) carrying builder
+# stories, which the competition site's showcase renders.
+#
 # Anonymous, CDN-backed, CORS-open. Nothing is committed back to the repo, so
 # there is no risk of a push loop.
 on:
@@ -14,6 +17,7 @@ on:
       - 'cycle*/**'
       - 'scripts/build-index.mjs'
       - 'scripts/lib/feed.mjs'
+      - 'scripts/lib/schema.mjs'
       - '.github/workflows/publish-apps.yml'
   workflow_dispatch:
 

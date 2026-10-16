@@ -288,3 +288,55 @@ test('collects errors across submissions and still builds the healthy ones', () 
   assert.equal(errors.length, 1)
   assert.deepEqual(feed.apps.map((a) => a.app_name), ['Good'])
 })
+
+test('checks the category against the submission\'s own cycle', () => {
+  const { feed, errors } = build({
+    'cycle3/themed/submission.yaml': manifest({ category: 'Pay' }),
+    ...mediaFiles('cycle3/themed'),
+    'cycle1/offbrand/submission.yaml': manifest({ category: 'Pay' }),
+    ...mediaFiles('cycle1/offbrand'),
+  })
+  assert.deepEqual(feed.apps.map((a) => `${a.cycle}/${a.category}`), ['cycle3/Pay'])
+  assert.equal(errors.length, 1)
+  assert.match(errors[0], /^cycle1\/offbrand: category/)
+})
+
+test('builds one feed per cycle that also carries the builder story', () => {
+  const { feed, cycleFeeds, errors } = build({
+    'cycle1/NimiqBlue/submission.yaml': manifest(),
+    ...mediaFiles('cycle1/NimiqBlue'),
+    'cycle2/quiet/submission.yaml': manifest({ builder_story: null }),
+    ...mediaFiles('cycle2/quiet'),
+  })
+
+  assert.deepEqual(errors, [])
+  assert.deepEqual(Object.keys(cycleFeeds), ['cycle1', 'cycle2'])
+  assert.deepEqual(cycleFeeds.cycle1, {
+    generated_at: '2026-07-14T00:00:00.000Z',
+    commit: 'abc1234',
+    cycle: 'cycle1',
+    apps: [{ ...feed.apps[0], builder_story: 'secret builder story' }],
+  })
+  assert.deepEqual(cycleFeeds.cycle2.apps, [{ ...feed.apps[1], builder_story: null }])
+})
+
+test('keeps the contact email out of the per-cycle feeds', () => {
+  const { cycleFeeds } = build({
+    'cycle1/NimiqBlue/submission.yaml': manifest(),
+    ...mediaFiles('cycle1/NimiqBlue'),
+  })
+  assert.doesNotMatch(JSON.stringify(cycleFeeds), /someone@example\.com/)
+})
+
+test('reports a malformed builder story', () => {
+  const { errors } = build({
+    'cycle1/a/submission.yaml': manifest({ builder_story: 42 }),
+    ...mediaFiles('cycle1/a'),
+    'cycle1/b/submission.yaml': manifest({ builder_story: 'x'.repeat(4001) }),
+    ...mediaFiles('cycle1/b'),
+  })
+  assert.deepEqual(errors, [
+    'cycle1/a: builder_story must be text or null.',
+    'cycle1/b: builder_story must be text or null.',
+  ])
+})

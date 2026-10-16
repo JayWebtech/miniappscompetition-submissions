@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Builds the public app feed published to GitHub Pages:
 //
-//   <out>/apps.json                     the feed
+//   <out>/apps.json                     the feed (all cycles)
+//   <out>/cycleN.json                   one cycle, plus builder stories
 //   <out>/cycleN/<login>/<image>        media, same-origin with the feed
 //
 // Media URLs are derived from PAGES_BASE_URL (the base_url output of
@@ -36,7 +37,7 @@ const readFile = (p) => {
   }
 }
 
-const { feed, assets, errors } = buildFeed({
+const { feed, cycleFeeds, assets, errors } = buildFeed({
   listDirs,
   readFile,
   baseUrl,
@@ -57,6 +58,10 @@ for (const asset of assets) {
   copyFileSync(join(root, asset), dest)
 }
 writeFileSync(join(outDir, 'apps.json'), `${JSON.stringify(feed, null, 2)}\n`)
+for (const [cycle, cycleFeed] of Object.entries(cycleFeeds)) {
+  writeFileSync(join(outDir, `${cycle}.json`), `${JSON.stringify(cycleFeed, null, 2)}\n`)
+}
 
 console.log(`Built ${feed.apps.length} app(s) and ${assets.length} image asset(s) into ${outDir}/`)
+for (const [cycle, cycleFeed] of Object.entries(cycleFeeds)) console.log(`  ${cycle}.json: ${cycleFeed.apps.length} app(s)`)
 for (const app of feed.apps) console.log(`  • ${app.cycle}  ${app.app_name} — ${app.url}`)

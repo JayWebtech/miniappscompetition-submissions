@@ -1,11 +1,12 @@
 import { parse as parseYaml } from 'yaml'
-import { SUBMISSION_DIR_RE, CATEGORIES, PRICING, MAX, EMAIL_RE, isHttpUrl, IMAGE, SAFE_FILENAME_RE } from './schema.mjs'
+import { SUBMISSION_DIR_RE, categoriesForCycle, PRICING, MAX, EMAIL_RE, isHttpUrl, IMAGE, SAFE_FILENAME_RE } from './schema.mjs'
 import { sniffImageType } from './sniff.mjs'
 
 // Validates the parsed submission.yaml against the mirrored schema. Returns a
 // list of error strings (empty = valid). Mirrors validateSubmission() in the
-// portal, adapted to the snake_case YAML shape.
-export function validateManifest(v) {
+// portal, adapted to the snake_case YAML shape. `cycle` is the submission's
+// cycle folder, which picks the category vocabulary.
+export function validateManifest(v, cycle) {
   const errors = []
   const o = v && typeof v === 'object' ? v : {}
 
@@ -21,7 +22,7 @@ export function validateManifest(v) {
 
   reqStr('app_name', MAX.appName, 'App name')
 
-  if (!CATEGORIES.includes(o.category)) errors.push(`category must be one of the allowed categories.`)
+  if (!categoriesForCycle(cycle).includes(o.category)) errors.push(`category must be one of the allowed categories.`)
 
   reqStr('tagline', MAX.tagline, 'Tagline')
   reqStr('description', MAX.description, 'Description')
@@ -226,7 +227,7 @@ export function checkStructural({ changedPaths, readFile, listDir }) {
 
   const yaml = finding('yaml', LABELS.yaml, true)
 
-  const schemaErrors = validateManifest(r.value)
+  const schemaErrors = validateManifest(r.value, r.dir.split('/')[0])
   const schema = finding('schema', LABELS.schema, schemaErrors.length === 0, schemaErrors)
 
   const loginOk = r.value.github_login === r.login

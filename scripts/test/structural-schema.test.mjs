@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validateManifest, checkStructural } from '../lib/structural.mjs'
+import { stringify as stringifyYaml } from 'yaml'
 
 const base = {
   app_name: 'VeriLock',
@@ -31,6 +32,12 @@ test('missing required field errors', () => {
   const v = { ...base }
   delete v.app_name
   assert.ok(validateManifest(v).some((e) => /app_name/i.test(e)))
+})
+
+test('category is checked against the submission\'s own cycle', () => {
+  assert.deepEqual(validateManifest({ ...base, category: 'Pay' }, 'cycle3'), [])
+  assert.ok(validateManifest({ ...base, category: 'Productivity' }, 'cycle3').some((e) => /category/i.test(e)))
+  assert.ok(validateManifest({ ...base, category: 'Pay' }, 'cycle2').some((e) => /category/i.test(e)))
 })
 
 test('bad category & pricing enums error', () => {
@@ -96,4 +103,14 @@ test('login-match fails when submission.yaml github_login does not match the fol
   assert.equal(loginMatch.ok, false)
   assert.match(loginMatch.details.join(' '), /someoneelse/)
   assert.match(loginMatch.details.join(' '), /realuser/)
+})
+
+test('schema check takes the cycle from the submission folder', () => {
+  const run = (dir, category) => checkStructural({
+    changedPaths: [`${dir}/submission.yaml`],
+    readFile: (p) => (p === `${dir}/submission.yaml` ? Buffer.from(stringifyYaml({ ...base, category })) : null),
+    listDir: () => ['submission.yaml'],
+  }).find((f) => f.id === 'schema')
+  assert.equal(run('cycle3/harmssam', 'Pay').ok, true)
+  assert.equal(run('cycle1/harmssam', 'Pay').ok, false)
 })
